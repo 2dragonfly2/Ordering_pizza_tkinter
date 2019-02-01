@@ -1,0 +1,46 @@
+spam <- read.table("spambase.data", header = FALSE, sep = ",")
+names(spam)
+head(spam)
+dim(spam)
+unique(spam$V58)
+learning<-read.table("learning.csv", sep = ",")
+testing<-read.table("testing.csv", sep = ",")
+## CLASSIFICATION TREES FOR LEARNING DATA
+library(rpart)
+spam.res <- rpart(V58 ~ .,
+                  data = spam, method="class",
+                  control=rpart.control(minsplit=2, minbucket=1))
+library(rpart.plot)
+rpart.plot(spam.res)
+extra.val <- 109
+rpart.plot(spam.res, type=2, extra = extra.val)
+table(spam$V58, predict(spam.res, spam[,-58], type="class"))
+## наибольший уровень значимости у 53,7,52
+########### Logistic Regression ##############
+
+# glmnet пакет для логистических функций
+install.packages("glmnet")
+library(glmnet)
+str(learning)
+
+as.numeric(learning$V58)
+learning$V58<-as.factor(learning$V58)
+
+model1<-glm(V58~.,family = binomial(link='logit'),data=learning,weights = NULL)
+summary(model1) 
+# статистически значимы V5,V53,V45,V16,V7
+## ИТОГО самые значимые по моему мнению 53,52,16.  char_freq_$,  char_freq_!,  word_freq_free
+
+### PREDICTION FOR TESTING DATA
+pred.test<-predict(model1,testing,type='response')
+results<-round(pred.test)
+table(results,testing$V58)
+misClasificError <- mean(results != testing$V58)
+misClasificError
+print(paste('Accuracy',1-misClasificError))
+# 0.92 точность выявления спама на тестовой выборке
+
+model2<-glm(V58~ 1,family = binomial(link='logit'),data=learning,weights = NULL)
+
+anova(model1, model2, test="F")
+# F-статистика=51.63
